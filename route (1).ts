@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST() {
   const supabase = createClient();
@@ -22,16 +22,13 @@ export async function POST() {
 
   const hskLevel = profile?.hsk_level ?? 1;
 
-  const completion = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    system:
-      "Kamu adalah pembuat soal kuis bahasa Mandarin. Balas HANYA dengan JSON valid, tanpa teks lain, tanpa markdown code fence.",
-    messages: [
-      {
-        role: "user",
-        content: `Buatkan 5 soal pilihan ganda bahasa Mandarin untuk level HSK ${hskLevel}.
-Format JSON persis seperti ini:
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
+  });
+
+  const prompt = `Buatkan 5 soal pilihan ganda bahasa Mandarin untuk level HSK ${hskLevel}.
+Balas HANYA dengan JSON valid, tanpa teks lain, format persis seperti ini:
 {
   "questions": [
     {
@@ -40,15 +37,10 @@ Format JSON persis seperti ini:
       "correctIndex": 0
     }
   ]
-}`,
-      },
-    ],
-  });
+}`;
 
-  const text = completion.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
 
   let quiz;
   try {

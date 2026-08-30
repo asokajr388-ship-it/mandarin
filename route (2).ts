@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
 import { calculateHskLevel } from "@/lib/level";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const XP_PER_MESSAGE = 2;
 
@@ -35,20 +35,21 @@ Aturan:
 - Jika pelajar membuat kesalahan tata bahasa, koreksi dengan lembut dan jelaskan singkat.
 - Jaga respons singkat (maksimal 4-5 kalimat) supaya tidak membebani pelajar.`;
 
-  const completion = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 500,
-    system: systemPrompt,
-    messages: messages.map((m: { role: string; content: string }) => ({
-      role: m.role,
-      content: m.content,
-    })),
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: systemPrompt,
   });
 
-  const reply = completion.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
+  // Gemini pakai role "model" untuk balasan AI, bukan "assistant"
+  const history = messages.slice(0, -1).map((m: { role: string; content: string }) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+  const lastMessage = messages[messages.length - 1];
+
+  const chat = model.startChat({ history });
+  const result = await chat.sendMessage(lastMessage.content);
+  const reply = result.response.text();
 
   const newXp = (profile?.xp ?? 0) + XP_PER_MESSAGE;
   const newHskLevel = calculateHskLevel(newXp);
@@ -69,7 +70,7 @@ Aturan:
 
   await supabase.from("chat_sessions").insert({
     user_id: user.id,
-    summary: messages[messages.length - 1]?.content?.slice(0, 200) ?? null,
+    summary: lastMessage?.content?.slice(0, 200) ?? null,
     xp_earned: XP_PER_MESSAGE,
   });
 

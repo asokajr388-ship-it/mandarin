@@ -25,7 +25,7 @@ Aplikasi belajar Mandarin dengan tutor AI (chat + kuis) dan leaderboard level HS
    - Sebelum klik Deploy, buka bagian **Environment Variables**, tambahkan 3 ini:
      - `NEXT_PUBLIC_SUPABASE_URL`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `ANTHROPIC_API_KEY` (ambil dari console.anthropic.com)
+     - `GEMINI_API_KEY` (ambil gratis di aistudio.google.com/apikey, tanpa kartu kredit)
    - Klik Deploy
 
 4. Setelah deploy selesai, buka URL yang diberikan Vercel, daftar akun baru, dan mulai belajar.
